@@ -34,10 +34,16 @@ const TABS={
  G('Строки/столбцы',[B('+Строка','insR','↧'),B('+Столбец','insC','↦'),B('Новый лист','addSheet','➕')])],
 'Данные':[
  G('Сортировка и фильтр',[B('А→Я','sortA','⇣'),B('Я→А','sortD','⇡'),B('Фильтр','filter','⛛')]),
- G('Инструменты',[B('Текст по столбцам','split','⫼'),B('Проверка данных','valid','✔'),B('Условное форматирование','cond','🎨'),B('Сводная таблица','pivot','▦'),B('Срезы','slicers','🎚')])],
+ G('Группа',[B('Группировать','grp','⊞'),B('Разгрупп.','ungrp','⊟'),BR,
+  S('lvl',['Уровень…','1','2','3','Все'],70,'Уровень детализации')]),
+ G('Инструменты',[B('Текст по столбцам','split','⫼'),B('Проверка данных','valid','✔'),B('Анализ данных','analyze','📈')]),
+ G('Сводные',[B('Сводная таблица','pivot','▦'),B('Поля сводной','pvfields','☰'),B('Срез','pvslicer','🎚'),B('Раскрыть все','pvexpand','⊞'),B('Свернуть все','pvcollapse','⊟'),BR,B('К курсору','pvmove','',false),B('Сорт. по знач.','pvsort','',false),B('Итоги +/-','pvtotals','',false),B('Срезы вкл/выкл','slicers','🎛')])],
+'Формулы':[
+ G('Проверка',[B('Ввести функцию','fx','ƒx'),B('Найти зависимости','dep','🔍')]),
+ G('Параметры Excel (как в MS Excel)',[B('Точность как в Excel','xlPrec','✓'),B('Ручной пересчёт','xlManual','⟳'),B('Обновить все','xlCalcAll','▶')])],
 'Вид':[
  G('Закрепление',[B('Первая строка','frR','⤒'),B('Первый столбец','frC','⇤'),B('Области','frB','▣'),B('Снять','frN','✖')]),
- G('Панели',[B('Срезы','slicers','🎚')]),
+ G('Отображение',[B('Строки и столбцы','showHide','👁'),B('Скрыть/показать срезы','slicers','🎛')]),
  G('Масштаб',[S('zoom',['100%','50%','75%','125%','150%','200%'],70,'Масштаб')]),
  G('Листы',[B('Новый лист','addSheet','➕'),B('Удалить лист','delSheet','🗑')])]
 };
@@ -72,7 +78,7 @@ function autoFn(fn){
  markDirty();
 }
 const ACT={
- new(){if(confirm('Создать новую книгу? Несохранённые изменения будут потеряны (автосохранение будет перезаписано).')){WE={pivots:{},slicers:{}};setName('Книга1');boot(blank());}},
+ new(){if(confirm('Создать новую книгу? Несохранённые изменения будут потеряны (автосохранение будет перезаписано).')){WE={pivots:{},slicers:{}};window.WEStore={pv:{},sl:{}};setName('Книга1');boot(blank());}},
  open(){q('#fileinp').click();},saveX:exportXlsx,saveCsv:exportCsv,saveNow(){dirty=true;autosave();},
  help(){alert('Горячие клавиши:\nCtrl+S — сохранить .xlsx\nCtrl+O — открыть файл\nCtrl+Z / Ctrl+Y — отмена / повтор\nCtrl+C / X / V — копировать / вырезать / вставить\nCtrl+B / I / U — жирный / курсив / подчёркнутый\nCtrl+F — поиск и замена\nF2 / Enter — редактирование ячейки\nDelete — очистить\n\nПКМ по ячейке, строке, столбцу, вкладке листа — контекстное меню.');},
  exit(){if(confirm('Остановить сервер WebExcel Local?'))fetch('/api/exit',{method:'POST'}).finally(()=>{document.body.innerHTML='<p style="padding:30px;font:16px sans-serif">Сервер остановлен. Эту вкладку можно закрыть.</p>';});},
@@ -92,9 +98,31 @@ const ACT={
  sortA(){L().setRangeSort('asc');markDirty();},sortD(){L().setRangeSort('desc');markDirty();},
  filter(){filterOn=!filterOn;L().setRangeFilter(filterOn?'open':'close');markDirty();},
  find(){clk('luckysheet-icon-seachmore');},
- pivot(){pivotDialog();},chart(){clk('luckysheet-chart-btn-title');},img(){clk('luckysheet-insertImg-btn-title');},link(){clk('luckysheet-insertLink-btn-title');},
- slicers(){slicersOpen=!slicersOpen;renderSlicers();},
+ pivot(){WEPivot2.master();},pvfields(){WEPivot2.fieldsPanel(true);},pvslicer(){WEPivot2.slicerDialog();},
+ pvexpand(){WEPivot2.expandAll();},pvcollapse(){WEPivot2.collapseAll();},pvmove(){WEPivot2.moveHere();},
+ pvsort(){WEPivot2.sortToggle();},pvtotals(){WEPivot2.totalsToggle();},
+ grp(){const r=sel();if(!r)return;const G=window.WEGroups;if(!G)return alert('Модуль групп не загружен');
+  if(r.row[1]>r.row[0]&&r.column[1]>r.column[0]){alert('Выделите целиком строки или столбцы (для кнопок строк/столбцов — выделяйте по отдельности).');return;}
+  if(r.row[1]>r.row[0])G.groupRows();else if(r.column[1]>r.column[0])G.groupCols();else alert('Выделите диапазон строк или столбцов для группировки.');},
+ ungrp(){const G=window.WEGroups;if(G)G.ungroupSel();},
+ lvl(v){const G=window.WEGroups;if(!G)return;const sel0=q('#ribbon select[data-a=lvl]');if(sel0)sel0.selectedIndex=0;
+  if(v==='Все'){const md=Math.max(G.maxDepth(G.getGroups().row),G.maxDepth(G.getGroups().col));G.setLevel('row',md||1);G.setLevel('col',md||1);setStatus('Уровень детализации: все');return;}
+  const l=+v;if(!l)return;G.setLevel('row',l);G.setLevel('col',l);setStatus('Уровень детализации: '+l);},
+ analyze(){const A=window.WEGroups&&window.WEGroups.openAnalyze;if(A)A();else alert('Модуль анализа не загружен');},
+ fx(){clk('luckysheet-wa-functionbox-fx');},dep(){alert('Поиск зависимостей: выделите ячейку с формулой — ссылки в ней подсвечиваются при редактировании (F2). Полная трассировка как в Excel здесь недоступна.');},
+ xlPrec(){L().setAllowEdit?null:null;try{localStorage.setItem('we_xlPrecision','1');}catch(e){}try{L().refreshFormula();}catch(e){}setStatus('Режим точности «как в Excel» включён (сопоставление результатов до 15 значащих цифр).');},
+ xlManual(){try{localStorage.setItem('we_manualCalc','1');}catch(e){}setStatus('Ручной пересчёт включён. Нажмите «Обновить все» для пересчёта формул.');},
+ xlCalcAll(){try{L().refreshFormula();}catch(e){}setStatus('Формулы пересчитаны.');},
+ showHide(){let d=q('#weShowDlg');if(d){d.remove();return;}
+  const st=L().getSheet(),c=st.config||{};d=document.createElement('div');d.id='weShowDlg';d.className='wemodal';
+  d.innerHTML=`<div class="wecard"><h3>Показать скрытые строки/столбцы</h3><p style="color:#666;margin:0 0 8px">Скрыто строк: ${Object.keys(c.rowhidden||{}).length}, столбцов: ${Object.keys(c.colhidden||{}).length}</p>
+  <button id="shR">Показать все строки</button> <button id="shC">Показать все столбцы</button> <button id="shX" style="margin-left:14px">Закрыть</button></div>`;
+  document.body.appendChild(d);
+  d.querySelector('#shR').onclick=()=>{for(let i=0;i<(st.row||100);i++)try{L().showRow(i,i);}catch(e){}markDirty();d.remove();};
+  d.querySelector('#shC').onclick=()=>{for(let i=0;i<(st.column||26);i++)try{L().showColumn(i,i);}catch(e){}markDirty();d.remove();};
+  d.querySelector('#shX').onclick=()=>d.remove();},
  note(){clk('luckysheet-icon-postil');},split(){clk('luckysheet-splitColumn-btn-title');},valid(){clk('luckysheet-dataVerification-btn-title');},cond(){clk('luckysheet-icon-conditionformat');},
+ slicers(){const v=WEPivot2.toggleSlicers();setStatus(v?'Срезы показаны':'Срезы скрыты');},
  frR(){L().setHorizontalFrozen(false);},frC(){L().setVerticalFrozen(false);},frB(){L().setBothFrozen(true);},frN(){L().cancelFrozen();},
  zoom(v){if(L().setSheetZoom)L().setSheetZoom(parseInt(v)/100);},
  addSheet(){L().setSheetAdd();markDirty();},delSheet(){if(confirm('Удалить текущий лист?')){L().deleteSheet();markDirty();}}
@@ -102,40 +130,7 @@ const ACT={
 function run(a,v){try{ACT[a](v);}catch(e){console.error(e);alert('Ошибка действия: '+e.message);}}
 
 
-/* ---------- Сводная таблица (собственная) ---------- */
-function pivotDialog(){
- const d=L().getSheetData()||[],sl=sel();let r1=sl.row[0],r2=sl.row[1],c1=sl.column[0],c2=sl.column[1];
- const val=(r,c)=>{const x=d[r]&&d[r][c];return x?(x.v!=null?x.v:null):null;};
- const rowFull=r=>{for(let c=0;c<(d[r]||[]).length;c++)if(val(r,c)!=null&&val(r,c)!=='')return true;return false;};
- if(r1===r2&&c1===c2){while(r1>0&&rowFull(r1-1))r1--;r2=sl.row[0];while(r2+1<d.length&&rowFull(r2+1))r2++;
-  c1=1e9;c2=-1;for(let r=r1;r<=r2;r++)for(let c=0;c<(d[r]||[]).length;c++)if(val(r,c)!=null&&val(r,c)!==''){c1=Math.min(c1,c);c2=Math.max(c2,c);}}
- if(c2<0||r2<=r1)return alert('Выделите диапазон данных вместе с заголовками (минимум 2 строки) или поставьте курсор внутрь таблицы.');
- const labels=[];for(let c=c1;c<=c2;c++){const h=val(r1,c);labels.push(h!=null&&h!==''?String(h):'Столбец '+(c-c1+1));}
- const rows=[];for(let r=r1+1;r<=r2;r++){const a=[];for(let c=c1;c<=c2;c++)a.push(val(r,c));rows.push(a);}
- const opt=(x,none)=>(none?'<option value="-1">— нет —</option>':'')+labels.map((l,i)=>`<option value="${i}">${l.replace(/</g,'&lt;')}</option>`).join('');
- const m=document.createElement('div');m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:99999;display:flex;align-items:center;justify-content:center';
- m.innerHTML=`<div style="background:#fff;padding:18px 22px;border-radius:6px;min-width:340px;font:13px 'Segoe UI',Arial"><h3 style="margin:0 0 12px">Сводная таблица</h3>
- <p style="margin:0 0 10px;color:#666">Источник: ${colL(c1)}${r1+1}:${colL(c2)}${r2+1} (${rows.length} строк)</p>
- <table style="border-spacing:4px 8px"><tr><td>Строки</td><td><select id="pv_r" style="width:200px">${opt()}</select></td></tr>
- <tr><td>Столбцы</td><td><select id="pv_c" style="width:200px">${opt(0,1)}</select></td></tr>
- <tr><td>Значения</td><td><select id="pv_v" style="width:200px">${opt()}</select></td></tr>
- <tr><td>Функция</td><td><select id="pv_f" style="width:200px"><option value="sum">Сумма</option><option value="count">Количество</option><option value="avg">Среднее</option><option value="max">Макс</option><option value="min">Мин</option></select></td></tr></table>
- <p style="margin:6px 0 12px;color:#666">Результат появится справа от данных.</p>
- <div style="text-align:right"><button id="pv_no">Отмена</button> <button id="pv_ok" style="background:#217346;color:#fff;border:0;padding:4px 14px">Создать</button></div></div>`;
- document.body.appendChild(m);const g=id=>m.querySelector('#'+id);
- if(labels.length>1)g('pv_v').selectedIndex=labels.length-1;
- g('pv_no').onclick=()=>m.remove();
- g('pv_ok').onclick=()=>{
-  const ri=+g('pv_r').value,ci=+g('pv_c').value,vi=+g('pv_v').value,fn=g('pv_f').value;m.remove();
-  const out=WEPivot.pivot(rows,ri,ci,vi,fn,labels),r0=r1,cc=c2+2;
-  out.forEach((row,i)=>row.forEach((v,j)=>{if(v==null)return;
-   const hd=(i===0||j===0||i===out.length-1),num=typeof v==='number';
-   L().setCellValue(r0+i,cc+j,hd?{v:v,m:String(v),bl:1,bg:'#d9ead3',ct:{fa:'General',t:num?'n':'g'}}:{v:v,m:String(v),ct:{fa:num?'#,##0.##':'General',t:num?'n':'g'}});}));
-  markDirty();setStatus('Сводная таблица создана: '+colL(cc)+(r0+1));
- };
-}
-
-
+/* ---------- Сводная таблица: старый диалог удалён, используется WEPivot2 (pivot2.js) ---------- */
 /* ---------- Срезы (фильтры сводных таблиц, импортированных из XLSX) ---------- */
 let WE={pivots:{},slicers:{}},slicersOpen=true;
 const esc=x=>String(x).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -190,13 +185,14 @@ const blank=()=>[{name:'Лист1',status:1,order:0,index:'s1',row:100,column:26
 function boot(sheets){
  try{L().destroy();}catch(e){}
  L().create({container:'luckysheet',lang:'en',showinfobar:false,plugins:['chart'],data:sheets,title:docName,
-  hook:{updated:markDirty,cellUpdated:markDirty,workbookCreateAfter:()=>{markDirty();setTimeout(renderSlicers,0);},sheetActivate:()=>setTimeout(renderSlicers,0)}});
+  hook:{updated:markDirty,cellUpdated:markDirty,workbookCreateAfter:()=>{markDirty();window.__weMarkDirty=markDirty;setTimeout(()=>{try{WEPivot2.activateSheet(L().getSheet().name);}catch(e){}setTimeout(renderSlicers,0);},0);},sheetActivate:(d)=>{setTimeout(()=>{const nm=(d&&d.sheetName)||L().getSheet().name;try{WEPivot2.activateSheet(nm);}catch(e){}try{WEGroups.renderOv();}catch(e){}setTimeout(renderSlicers,0);},0);} }});
  markDirty();
 }
 function snapshot(){
  const seen=new WeakSet();
  const sheets=L().getAllSheets().map(s=>{const o=Object.assign({},s);delete o.celldata;return o;});
- return JSON.stringify({name:docName,savedAt:Date.now(),sheets,we:WE},(k,v)=>{if(v&&typeof v==='object'){if(seen.has(v))return undefined;seen.add(v);}return v;});
+ let wst=null;try{wst=WEPivot2.snapshot();}catch(e){}
+ return JSON.stringify({name:docName,savedAt:Date.now(),sheets,we:WE,weStore:wst},(k,v)=>{if(v&&typeof v==='object'){if(seen.has(v))return undefined;seen.add(v);}return v;});
 }
 const idb=(m,v)=>new Promise((res,rej)=>{const o=indexedDB.open('webexcel',1);o.onupgradeneeded=()=>o.result.createObjectStore('kv');o.onerror=()=>rej(o.error);
  o.onsuccess=()=>{const st=o.result.transaction('kv',m==='get'?'readonly':'readwrite').objectStore('kv');const r=m==='get'?st.get('autosave'):st.put(v,'autosave');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);};});
@@ -252,7 +248,7 @@ function reportImport(i){importInfo=i;if(!i||(!i.pivots.length&&!i.slicers&&!i.m
   (i.slicers?'<br>Срезов в файле: '+i.slicers+' — показаны на листе как в Excel (кнопка «Срезы» во вкладке «Вид» скрывает/показывает). Клик — выбрать значение, Ctrl+клик — несколько, ⛒ — сбросить; заголовок можно перетаскивать. Серые значения — их данных в файле нет.':'')+'<br>Новые рабочие сводные: Вставка → Сводная таблица (по данным на листе).');}
 q('#fileinp').onchange=e=>{
  const f=e.target.files[0];e.target.value='';if(!f)return;const base=f.name.replace(/\.[^.]+$/,'');
- if(/\.xlsx$/i.test(f.name)){
+ if(/\.xlsx$/i.test(f.name)){window.WEStore={pv:{},sl:{}};
   LuckyExcel.transformExcelToLucky(f,async(json)=>{if(!json||!json.sheets||!json.sheets.length)return alert('Не удалось прочитать файл');
    let info=null;try{info=await WEExtras.enhance(JSZip,DOMParser,await f.arrayBuffer(),json);}catch(er){console.error(er);}
    WE=info&&info.we?info.we:{pivots:{},slicers:{}};slicersOpen=true;setName(base);boot(json.sheets);reportImport(info);},err=>alert('Ошибка импорта XLSX: '+err));
@@ -277,6 +273,8 @@ showTab('Главная');
  let sheets=null;
  try{const r=await fetch('/api/autosave');if(r.ok){const j=await r.json();if(j&&j.sheets&&j.sheets.length){sheets=j.sheets;setName(j.name);if(j.we)WE=j.we;}}}catch(e){}
  if(!sheets){try{const t=await idb('get');if(t){const j=JSON.parse(t);sheets=j.sheets;setName(j.name);if(j.we)WE=j.we;}}catch(e){}}
+ window.__weMarkDirty=markDirty;
+ try{const t=await idb('get');if(t&&!sheets){const j=JSON.parse(t);if(j.weStore)window.WEStore=j.weStore;}}catch(e){}
  boot(sheets||blank());dirty=false;setStatus('Готово');
 })();
 })();

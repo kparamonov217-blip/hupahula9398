@@ -22,7 +22,7 @@ function group(sel,t){const c=cfg();if(!c||sel.a>sel.b)return;const key=t==='row
  /* не дублируем точные совпадения */
  if(g.some(x=>x.a===sel.a&&x.b===sel.b)){renderOv();return;}
  g.push({a:sel.a,b:sel.b,collapsed:false});g.sort((x,y)=>x.a-y.a||x.b-y.b);c[key]=g;
- hideRange(t,sel.a,sel.b);markD();renderOv();setStatus('Группа создана ('+(t==='row'?'строки':'столбцы')+' '+(sel.a+1)+'–'+(sel.b+1)+'). Кнопки +/− слева/сверху.');}
+ showRange(t,sel.a,sel.b);hideRange(t,sel.a,sel.b);markD();renderOv();setStatus('Группа создана ('+(t==='row'?'строки':'столбцы')+' '+(sel.a+1)+'–'+(sel.b+1)+'). Кнопки +/− слева/сверху.');}
 function ungroup(sel,t){const c=cfg();if(!c)return;const key=t==='row'?'groupR':'groupC',g=c[key]||[];
  const hid=norm(c[t==='row'?'rowhidden':'colhidden']);
  c[key]=g.filter(gr=>{if(gr.a>=sel.a&&gr.b<=sel.b){
