@@ -1,0 +1,15 @@
+{
+  "name": "webexcel",
+  "productName": "WebExcel",
+  "version": "1.0.0",
+  "description": "WebExcel — настольный редактор таблиц (аналог Excel): сводные таблицы, срезы, группировки",
+  "main": "main.js",
+  "author": "WebExcel",
+  "license": "MIT",
+  "scripts": {
+    "dist": "electron-packager . WebExcel --platform=win32 --arch=x64 --out=../release-build --overwrite --icon=../paint_32px.ico"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6"
+  }
+}

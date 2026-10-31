@@ -81,7 +81,7 @@ const ACT={
  new(){if(confirm('Создать новую книгу? Несохранённые изменения будут потеряны (автосохранение будет перезаписано).')){WE={pivots:{},slicers:{}};window.WEStore={pv:{},sl:{}};setName('Книга1');boot(blank());}},
  open(){q('#fileinp').click();},saveX:exportXlsx,saveCsv:exportCsv,saveNow(){dirty=true;autosave();},
  help(){alert('Горячие клавиши:\nCtrl+S — сохранить .xlsx\nCtrl+O — открыть файл\nCtrl+Z / Ctrl+Y — отмена / повтор\nCtrl+C / X / V — копировать / вырезать / вставить\nCtrl+B / I / U — жирный / курсив / подчёркнутый\nCtrl+F — поиск и замена\nF2 / Enter — редактирование ячейки\nDelete — очистить\n\nПКМ по ячейке, строке, столбцу, вкладке листа — контекстное меню.');},
- exit(){if(confirm('Остановить сервер WebExcel Local?'))fetch('/api/exit',{method:'POST'}).finally(()=>{document.body.innerHTML='<p style="padding:30px;font:16px sans-serif">Сервер остановлен. Эту вкладку можно закрыть.</p>';});},
+ exit(){if(window.__weDesktop){if(confirm('Выйти из WebExcel? Несохранённые изменения будут автосохранены.')){autosave();setTimeout(()=>{try{window.weDesktop.quit();}catch(e){}},400);}return;}if(confirm('Остановить сервер WebExcel Local?'))fetch('/api/exit',{method:'POST'}).finally(()=>{document.body.innerHTML='<p style="padding:30px;font:16px sans-serif">Сервер остановлен. Эту вкладку можно закрыть.</p>';});},
  undo(){L().undo();},redo(){L().redo();},
  bold(){tog('bl');},italic(){tog('it');},under(){tog('un');},strike(){tog('cl');},
  ff(v){fmt('ff',v);},fs(v){fmt('fs',+v);},fc(v){fmt('fc',v);},bg(v){fmt('bg',v);},
@@ -196,9 +196,12 @@ function snapshot(){
 }
 const idb=(m,v)=>new Promise((res,rej)=>{const o=indexedDB.open('webexcel',1);o.onupgradeneeded=()=>o.result.createObjectStore('kv');o.onerror=()=>rej(o.error);
  o.onsuccess=()=>{const st=o.result.transaction('kv',m==='get'?'readonly':'readwrite').objectStore('kv');const r=m==='get'?st.get('autosave'):st.put(v,'autosave');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);};});
+window.__weDesktop=!!(window.weDesktop&&window.weDesktop.save);
 async function autosave(){
  if(!dirty||!L())return;dirty=false;
- try{const txt=snapshot();await idb('put',txt).catch(()=>{});await fetch('/api/autosave',{method:'POST',body:txt});setStatus('Автосохранено '+new Date().toLocaleTimeString('ru-RU'));}
+ try{const txt=snapshot();await idb('put',txt).catch(()=>{});
+  if(window.__weDesktop){await window.weDesktop.save(txt);}else{await fetch('/api/autosave',{method:'POST',body:txt});}
+  setStatus('Автосохранено '+new Date().toLocaleTimeString('ru-RU'));}
  catch(e){dirty=true;setStatus('Ошибка автосохранения');console.error(e);}
 }
 setInterval(autosave,5000);
@@ -271,7 +274,8 @@ new MutationObserver(ms=>ms.forEach(m=>{m.addedNodes.forEach(tr);if(m.type==='ch
 showTab('Главная');
 (async function(){
  let sheets=null;
- try{const r=await fetch('/api/autosave');if(r.ok){const j=await r.json();if(j&&j.sheets&&j.sheets.length){sheets=j.sheets;setName(j.name);if(j.we)WE=j.we;}}}catch(e){}
+ if(window.__weDesktop){try{const t=await window.weDesktop.load();if(t){const j=JSON.parse(t);if(j&&j.sheets&&j.sheets.length){sheets=j.sheets;setName(j.name);if(j.we)WE=j.we;if(j.weStore)window.WEStore=j.weStore;}}}catch(e){}}
+ else{try{const r=await fetch('/api/autosave');if(r.ok){const j=await r.json();if(j&&j.sheets&&j.sheets.length){sheets=j.sheets;setName(j.name);if(j.we)WE=j.we;}}}catch(e){}}
  if(!sheets){try{const t=await idb('get');if(t){const j=JSON.parse(t);sheets=j.sheets;setName(j.name);if(j.we)WE=j.we;}}catch(e){}}
  window.__weMarkDirty=markDirty;
  try{const t=await idb('get');if(t&&!sheets){const j=JSON.parse(t);if(j.weStore)window.WEStore=j.weStore;}}catch(e){}
