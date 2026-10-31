@@ -1,0 +1,7 @@
+Используемые компоненты (все с разрешительными лицензиями, коммерческих нет):
+- Luckysheet 2.1.13 — MIT (app\vendor\luckysheet\LICENSE)
+- LuckyExcel 1.0.1 — MIT (app\vendor\luckyexcel.LICENSE)
+- ExcelJS — MIT (app\vendor\exceljs.LICENSE)
+- Node.js — MIT (не входит в архив, устанавливается отдельно)
+Собственный код WebExcel Local (app\app.js, server.js, xlsx-export.js, style.css, index.html) — MIT.
+- JSZip — MIT/GPLv3 (двойная лицензия, используется по MIT; appendor\jszip.LICENSE)
